@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lwkfall: falling leaves, petals and snow for any website</title>
+<meta name="description" content="Tiny dependency-free canvas effects. Pick leaves, autumn, maple, cherry blossom, snow, rose petals or embers.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;600;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  @property --bg-top { syntax: "<color>"; inherits: true; initial-value: #14261a; }
+  @property --bg-bottom { syntax: "<color>"; inherits: true; initial-value: #0e1a12; }
+  @property --ink { syntax: "<color>"; inherits: true; initial-value: #e6f0dc; }
+  @property --accent { syntax: "<color>"; inherits: true; initial-value: #9ccf5a; }
+
+  :root {
+    --bg-top: #14261a; --bg-bottom: #0e1a12; --ink: #e6f0dc; --accent: #9ccf5a;
+    --muted: color-mix(in srgb, var(--ink) 62%, transparent);
+    --line: color-mix(in srgb, var(--ink) 18%, transparent);
+    --panel: color-mix(in srgb, var(--bg-bottom) 72%, transparent);
+    color-scheme: dark;
+    transition: --bg-top 1.4s ease, --bg-bottom 1.4s ease, --ink 1.4s ease, --accent 1.4s ease;
+  }
+  :root[data-scene="autumn"]  { --bg-top: #2e1a10; --bg-bottom: #1b0f0a; --ink: #f6e3c8; --accent: #f08c00; }
+  :root[data-scene="maple"]   { --bg-top: #2f1215; --bg-bottom: #1a0a0c; --ink: #f8dede; --accent: #ff6b4a; }
+  :root[data-scene="ginkgo"]  { --bg-top: #2d2610; --bg-bottom: #1a1608; --ink: #f9f0c4; --accent: #f6c915; }
+  :root[data-scene="sakura"]  { --bg-top: #2e1b33; --bg-bottom: #1a0f1e; --ink: #fde8ef; --accent: #ffb3c8; }
+  :root[data-scene="petals"]  { --bg-top: #2e0f1d; --bg-bottom: #1a0812; --ink: #fbe0ea; --accent: #e84a7f; }
+  :root[data-scene="snow"]    { --bg-top: #18273f; --bg-bottom: #0c1626; --ink: #e8f1ff; --accent: #a5d8ff; }
+  :root[data-scene="embers"]  { --bg-top: #221c19; --bg-bottom: #100d0c; --ink: #f5e6da; --accent: #ff7a18; }
+
+  * { box-sizing: border-box; }
+  html { min-height: 100%; background: var(--bg-bottom); }
+  body {
+    margin: 0;
+    min-height: 100svh;
+    color: var(--ink);
+    background: linear-gradient(180deg, var(--bg-top), var(--bg-bottom)) fixed;
+    font-family: "Schibsted Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 1.0625rem;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  main {
+    position: relative; z-index: 1;
+    min-height: 100svh;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 3rem;
+    padding: clamp(1.5rem, 5vw, 4.5rem);
+    max-width: 78rem;
+    margin: 0 auto;
+    align-content: center;
+  }
+  @media (min-width: 62rem) {
+    main { grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); gap: 5rem; align-items: center; }
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(3.4rem, 9vw, 7rem);
+    line-height: 0.95;
+    font-weight: 800;
+    letter-spacing: -0.045em;
+  }
+  .lede { margin: 1.25rem 0 0; max-width: 30rem; color: var(--muted); }
+
+  .scenes { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; gap: 0.1rem; }
+  .scenes button {
+    all: unset; box-sizing: border-box;
+    cursor: pointer;
+    font-size: clamp(1.5rem, 3.2vw, 2.15rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+    padding: 0.12em 0;
+    color: var(--muted);
+    transition: color 0.25s ease, transform 0.25s ease;
+  }
+  .scenes button:hover { color: var(--ink); }
+  .scenes button[aria-pressed="true"] { color: var(--accent); transform: translateX(0.6rem); }
+  .scenes button:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 4px; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 1.5rem;
+    backdrop-filter: blur(6px);
+  }
+  pre {
+    margin: 0;
+    font: 400 0.9rem/1.7 "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  pre .dim { color: var(--muted); }
+  pre .hl { color: var(--accent); }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+  .row strong { font-weight: 600; }
+
+  button.action {
+    font: inherit; font-size: 0.95rem; font-weight: 600;
+    color: var(--ink);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 0.45rem 0.9rem;
+    cursor: pointer;
+    transition: border-color 0.2s ease, color 0.2s ease;
+  }
+  button.action:hover { border-color: var(--accent); color: var(--accent); }
+  button.action:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  .controls { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--line); display: grid; gap: 1rem; }
+  .control { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr) 3.2rem; align-items: center; gap: 0.75rem; }
+  .control output { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
+  input[type="range"]:focus-visible, input[type="checkbox"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .toggle { display: flex; align-items: center; gap: 0.6rem; cursor: pointer; }
+  .toggle input { accent-color: var(--accent); width: 1.1rem; height: 1.1rem; margin: 0; }
+  .buttons { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+
+  .note { margin: 1rem 0 0; color: var(--muted); font-size: 0.95rem; }
+  .note[hidden] { display: none; }
+  footer { margin-top: 1.5rem; color: var(--muted); font-size: 0.95rem; }
+  footer a { color: var(--ink); text-underline-offset: 3px; }
+  footer a:hover { color: var(--accent); }
+  footer a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    :root { transition: none; }
+    .scenes button { transition: none; }
+    .scenes button[aria-pressed="true"] { transform: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <h1>Lwkfall</h1>
+    <p class="lede">Falling leaves, petals and snow for any website. One canvas, no dependencies, about 7 KB gzipped.</p>
+    <p class="note" id="load-error" hidden>
+      The effect library did not load, so nothing can fall. Extract the whole zip first instead of opening the page from inside it,
+      then run <code>npm run build</code>, or open <code>demo/standalone.html</code>, which needs no other files.
+    </p>
+    <ul class="scenes" id="scenes" aria-label="Effect"></ul>
+  </section>
+
+  <section>
+    <div class="panel">
+      <div class="row">
+        <strong>Use it</strong>
+        <button class="action" id="copy" type="button">Copy</button>
+      </div>
+      <pre id="code"></pre>
+
+      <div class="controls">
+        <label class="control">Density
+          <input id="density" type="range" min="0.3" max="2.5" step="0.1" value="1">
+          <output id="density-out">1.0</output>
+        </label>
+        <label class="control">Speed
+          <input id="speed" type="range" min="0.3" max="2.5" step="0.1" value="1">
+          <output id="speed-out">1.0</output>
+        </label>
+        <label class="control">Wind
+          <input id="wind" type="range" min="-80" max="80" step="1" value="0">
+          <output id="wind-out">0</output>
+        </label>
+        <div class="buttons">
+          <label class="toggle"><input id="pointer" type="checkbox"> Move away from the pointer</label>
+          <button class="action" id="pause" type="button">Pause</button>
+        </div>
+      </div>
+      <p class="note" id="motion-note" hidden>
+        Your system asks for reduced motion, so the effect is paused.
+        <button class="action" id="play-anyway" type="button">Play anyway</button>
+      </p>
+    </div>
+    <footer>Made by <a href="https://github.com/LwkMoon">Moon</a>. Source on <a href="https://github.com/LwkMoon/lwkfall">GitHub</a>.</footer>
+  </section>
+</main>
+
+<script>"use strict";var Lwkfall=(()=>{var M=Object.defineProperty;var K=Object.getOwnPropertyDescriptor;var Z=Object.getOwnPropertyNames;var x=Object.prototype.hasOwnProperty;var ee=(t,e)=>{for(var i in e)M(t,i,{get:e[i],enumerable:!0})},te=(t,e,i,n)=>{if(e&&typeof e=="object"||typeof e=="function")for(let s of Z(e))!x.call(t,s)&&s!==i&&M(t,s,{get:()=>e[s],enumerable:!(n=K(e,s))||n.enumerable});return t};var ie=t=>te(M({},"__esModule",{value:!0}),t);var Re={};ee(Re,{fall:()=>J,getPreset:()=>j,listPresets:()=>E,registerPreset:()=>$,shapes:()=>w});var m=(t,e,i)=>t+(e-t)*i,b=(t,e,i)=>Math.min(i,Math.max(e,t));function ne(t){let e=t>>>0;return()=>{e=e+1831565813>>>0;let i=e;return i=Math.imul(i^i>>>15,i|1),i^=i+Math.imul(i^i>>>7,i|61),((i^i>>>14)>>>0)/4294967296}}function S(t){return t===void 0?Math.random:ne(t)}function v(t,[e,i]){return m(e,i,t())}var _=/^#([0-9a-f]{3}|[0-9a-f]{6})$/i;function I(t){return _.test(t.trim())}function q(t){let e=_.exec(t.trim());if(!e)return null;let i=e[1];i.length===3&&(i=i.split("").map(s=>s+s).join(""));let n=parseInt(i,16);return[n>>16&255,n>>8&255,n&255]}var se=t=>Math.round(Math.min(255,Math.max(0,t)));function h(t,e){let i=q(t);if(!i)return t;let n=e>=0?255:0,s=Math.abs(e),[r,o,a]=i.map(l=>se(l+(n-l)*s));return`rgb(${r}, ${o}, ${a})`}function c(t,e){let i=q(t);return i?`rgba(${i[0]}, ${i[1]}, ${i[2]}, ${e})`:t}var P=Math.PI*2,g=t=>t*Math.PI/180;function H(t,e,i){t.strokeStyle=i,t.lineWidth=Math.max(1,e*.06),t.lineCap="round",t.beginPath(),t.moveTo(0,-e*.85),t.lineTo(0,e);for(let n=0;n<3;n++){let s=-e*.35+n*e*.35;t.moveTo(0,s+e*.18),t.lineTo(e*.38,s-e*.12),t.moveTo(0,s+e*.18),t.lineTo(-e*.38,s-e*.12)}t.stroke()}function k(t,e,i){let n=t.createLinearGradient(0,-e,0,e);return n.addColorStop(0,h(i,.12)),n.addColorStop(1,h(i,-.14)),n}var oe=(t,e,i)=>{t.beginPath(),t.moveTo(0,-e),t.bezierCurveTo(e*.8,-e*.45,e*.7,e*.55,0,e),t.bezierCurveTo(-e*.7,e*.55,-e*.8,-e*.45,0,-e),t.closePath();let n=t.createLinearGradient(-e*.6,0,e*.6,0);n.addColorStop(0,h(i,.14)),n.addColorStop(1,h(i,-.14)),t.fillStyle=n,t.fill(),H(t,e,h(i,-.32))},re=(t,e,i)=>{let n=[[-210,.55],[-148,.85],[-90,1],[-32,.85],[30,.55]],s=[[0,e*.42]];n.forEach(([r,o],a)=>{let l=n[a-1];if(l){let d=g((l[0]+r)/2);s.push([Math.cos(d)*e*.38,Math.sin(d)*e*.38])}for(let[d,u]of[[-10,.62],[0,1],[10,.62]]){let p=g(r+d);s.push([Math.cos(p)*e*o*u,Math.sin(p)*e*o*u])}}),t.beginPath(),s.forEach(([r,o],a)=>a===0?t.moveTo(r,o):t.lineTo(r,o)),t.closePath(),t.fillStyle=k(t,e,i),t.fill(),t.lineJoin="round",t.lineWidth=e*.07,t.strokeStyle=i,t.stroke(),t.strokeStyle=h(i,-.32),t.lineWidth=Math.max(1,e*.05),t.lineCap="round",t.beginPath();for(let[r,o]of n)t.moveTo(0,e*.42),t.lineTo(Math.cos(g(r))*e*o*.78,Math.sin(g(r))*e*o*.78);t.moveTo(0,e*.42),t.lineTo(0,e*.98),t.stroke()},ae=(t,e,i)=>{let r=o=>.55*Math.pow(Math.sin(Math.PI*o),.8)*(.72+.28*Math.cos(P*3*o));t.beginPath();for(let o=0;o<=36;o++){let a=o/36,l=r(a)*e,d=-e+2*e*a;o===0?t.moveTo(l,d):t.lineTo(l,d)}for(let o=36;o>=0;o--){let a=o/36;t.lineTo(-r(a)*e,-e+2*e*a)}t.closePath(),t.fillStyle=k(t,e,i),t.fill(),t.lineJoin="round",t.lineWidth=e*.06,t.strokeStyle=i,t.stroke(),H(t,e,h(i,-.32))},le=(t,e,i)=>{t.beginPath(),t.moveTo(0,e),t.lineTo(-e*.9,-e*.35),t.quadraticCurveTo(-e*.55,-e*1,-e*.08,-e*.8),t.lineTo(0,-e*.55),t.lineTo(e*.08,-e*.8),t.quadraticCurveTo(e*.55,-e*1,e*.9,-e*.35),t.closePath(),t.fillStyle=k(t,e,i),t.fill(),t.lineJoin="round",t.lineWidth=e*.05,t.strokeStyle=i,t.stroke(),t.strokeStyle=h(i,-.3),t.lineWidth=Math.max(1,e*.04),t.beginPath();for(let n of[-.62,-.3,0,.3,.62])t.moveTo(0,e*.95),t.lineTo(n*e*1.25,-e*(.82-Math.abs(n)*.35));t.stroke()},he=(t,e,i)=>{t.beginPath(),t.moveTo(0,e*.9),t.bezierCurveTo(-e*.95,e*.3,-e*.7,-e*.75,-e*.16,-e*.92),t.lineTo(0,-e*.66),t.lineTo(e*.16,-e*.92),t.bezierCurveTo(e*.7,-e*.75,e*.95,e*.3,0,e*.9),t.closePath();let n=t.createLinearGradient(0,e,0,-e);n.addColorStop(0,h(i,-.16)),n.addColorStop(.6,i),n.addColorStop(1,h(i,.18)),t.fillStyle=n,t.fill()},de=(t,e,i)=>{t.beginPath(),t.moveTo(0,e),t.bezierCurveTo(-e*.9,e*.55,-e*.85,-e*.6,-e*.1,-e*.95),t.bezierCurveTo(e*.6,-e*.85,e*.95,e*.35,0,e),t.closePath();let n=t.createLinearGradient(0,e,0,-e);n.addColorStop(0,h(i,-.28)),n.addColorStop(.55,i),n.addColorStop(1,h(i,.1)),t.fillStyle=n,t.fill()},ue=(t,e,i)=>{t.strokeStyle=i,t.lineCap="round",t.lineWidth=Math.max(1.2,e*.1),t.shadowColor=c(i,.8),t.shadowBlur=e*.18;for(let n=0;n<6;n++)t.save(),t.rotate(n*P/6),t.beginPath(),t.moveTo(0,0),t.lineTo(0,-e*.95),t.moveTo(0,-e*.45),t.lineTo(e*.26,-e*.7),t.moveTo(0,-e*.45),t.lineTo(-e*.26,-e*.7),t.moveTo(0,-e*.7),t.lineTo(e*.17,-e*.88),t.moveTo(0,-e*.7),t.lineTo(-e*.17,-e*.88),t.stroke(),t.restore()},pe=(t,e,i)=>{let n=t.createRadialGradient(0,0,0,0,0,e);n.addColorStop(0,c(i,.95)),n.addColorStop(.55,c(i,.5)),n.addColorStop(1,c(i,0)),t.fillStyle=n,t.beginPath(),t.arc(0,0,e,0,P),t.fill()},ce=(t,e,i)=>{let n=t.createRadialGradient(0,0,0,0,0,e);n.addColorStop(0,h(i,.6)),n.addColorStop(.22,i),n.addColorStop(.6,c(i,.32)),n.addColorStop(1,c(i,0)),t.fillStyle=n,t.beginPath(),t.arc(0,0,e,0,P),t.fill()},w={leaf:oe,maple:re,oak:ae,ginkgo:le,petal:he,roundPetal:de,snowflake:ue,snowball:pe,glow:ce},T=Object.keys(w);var fe={leaves:{label:"Leaves",shapes:["leaf"],colors:["#5f9e3a","#79b84a","#4a8a2f","#8cc152","#3e7d32"],size:[20,44],speed:[38,85],sway:[14,40],swayFreq:[.6,1.3],spin:[-1.2,1.2],tumble:.85,tumbleSpeed:[.8,2],opacity:[.65,1],wind:14,density:4},autumn:{label:"Autumn",shapes:["maple","oak","ginkgo","leaf"],colors:["#d9480f","#e8590c","#f08c00","#c92a2a","#a8431b","#e67700","#b5651d","#f2b134"],size:[22,48],speed:[40,90],sway:[16,44],swayFreq:[.6,1.3],spin:[-1.4,1.4],tumble:.85,tumbleSpeed:[.8,2.2],opacity:[.7,1],wind:20,density:4},maple:{label:"Maple",shapes:["maple"],colors:["#c92a2a","#d9480f","#e03131","#f76707","#b02525"],size:[22,50],speed:[42,92],sway:[16,44],swayFreq:[.6,1.3],spin:[-1.4,1.4],tumble:.8,tumbleSpeed:[.8,2],opacity:[.75,1],wind:18,density:3.6},ginkgo:{label:"Ginkgo",shapes:["ginkgo"],colors:["#f6c915","#f2b705","#e9a800","#ffd43b","#f0b400"],size:[20,44],speed:[36,80],sway:[14,38],swayFreq:[.6,1.2],spin:[-1.1,1.1],tumble:.8,tumbleSpeed:[.8,1.9],opacity:[.75,1],wind:14,density:4},sakura:{label:"Cherry blossom",shapes:["petal"],colors:["#ffc2d4","#ffb3c8","#ffd6e0","#ff9fb8","#fde2ea"],size:[12,28],speed:[30,65],sway:[20,50],swayFreq:[.7,1.5],spin:[-1.6,1.6],tumble:.9,tumbleSpeed:[1,2.6],opacity:[.6,1],wind:22,density:6.5},petals:{label:"Rose petals",shapes:["roundPetal"],colors:["#c2185b","#d81b60","#ad1457","#e84a7f","#9c1450"],size:[14,32],speed:[32,70],sway:[18,46],swayFreq:[.6,1.3],spin:[-1.4,1.4],tumble:.9,tumbleSpeed:[.9,2.3],opacity:[.7,1],wind:16,density:5},snow:{label:"Snow",shapes:["snowflake","snowball","snowball"],colors:["#ffffff","#e8f1ff","#d6e6ff"],size:[6,20],speed:[25,70],sway:[6,22],swayFreq:[.5,1.2],spin:[-.5,.5],tumble:0,tumbleSpeed:[.4,1],opacity:[.5,.95],wind:8,density:9},embers:{label:"Embers",shapes:["glow"],colors:["#ff7a18","#ffb347","#ff5e00","#ffd166"],size:[4,12],speed:[30,90],sway:[8,28],swayFreq:[.8,2],spin:[0,0],tumble:0,tumbleSpeed:[.4,1],opacity:[.45,1],wind:10,density:6,direction:-1}},N={leaf:"leaves",green:"leaves","cherry-blossom":"sakura",cherry:"sakura",blossom:"sakura",snowflakes:"snow",rose:"petals","rose-petals":"petals",fall:"autumn"},y=new Map(Object.entries(fe)),C=t=>t.trim().toLowerCase();function me(t,e){if(!Array.isArray(e)||e.length!==2||!e.every(i=>Number.isFinite(i)))throw new Error(`lwkfall: "${t}" must be a [min, max] pair of numbers`)}function be(t){if(!t.shapes.length)throw new Error("lwkfall: preset needs at least one shape");for(let e of t.shapes){if(typeof e=="string"&&!T.includes(e))throw new Error(`lwkfall: unknown shape "${e}". Built-in shapes: ${T.join(", ")}`);if(typeof e!="string"&&typeof e!="function")throw new Error("lwkfall: shapes must be built-in names or draw functions")}if(!t.colors.length)throw new Error("lwkfall: preset needs at least one color");for(let e of t.colors)if(!I(e))throw new Error(`lwkfall: color "${e}" must be a hex value like #ff8800`);for(let e of["size","speed","sway","swayFreq","spin","tumbleSpeed","opacity"])me(e,t[e]);if(!(t.density>0))throw new Error("lwkfall: density must be greater than 0");if(t.tumble<0||t.tumble>1)throw new Error("lwkfall: tumble must be between 0 and 1");if(t.direction!==void 0&&t.direction!==1&&t.direction!==-1)throw new Error("lwkfall: direction must be 1 or -1");return t}function R(t){let e=C(t);return y.get(e)??y.get(N[e]??"")}function W(t){let e=t.extends??"leaves",i=R(e);if(!i)throw new Error(`lwkfall: cannot extend unknown preset "${e}"`);let{extends:n,...s}=t;return be({...i,...ve(s)})}function ve(t){return Object.fromEntries(Object.entries(t).filter(([,e])=>e!==void 0))}function $(t,e){let i=C(t);if(!i)throw new Error("lwkfall: preset name cannot be empty");let n=W(e);return y.set(i,n),n}function E(){return Array.from(y.keys())}function j(t){return R(t)}function L(t){if(typeof t=="string"){let e=R(t);if(!e)throw new Error(`lwkfall: unknown preset "${t}". Available: ${E().join(", ")}`);let i=C(t);return{name:y.has(i)?i:N[i],preset:e}}return{name:"custom",preset:W(t)}}var we=2e3,G=6,ye=.12;function X(t,e,i){if(i.count!==void 0)return b(Math.round(i.count),0,we);let n=Math.round(t/1e5*e*i.density);return b(n,G,Math.max(G,i.maxParticles))}function V(t,e){return e*(1+.5*Math.sin(t*.4)+.25*Math.sin(t*1.1+1.3))}function Y(t){let e=Math.max(ye,Math.abs(Math.cos(t.tumblePhase)));return 1-t.tumble*(1-e)}function z(t,e,i,n,s,r,o){let a=t(),l=m(e.size[0],e.size[1],Math.pow(a,1.4))*i.size,d=m(e.speed[0],e.speed[1],b(a*.7+t()*.3,0,1))*i.speed,u=e.direction??1,p;return o==="scatter"?p=t()*n.height:p=u===1?-l-t()*n.height:n.height+l+t()*n.height,{x:t()*n.width,y:p,size:l,fall:d,depth:a,swayAmp:v(t,e.sway),swayFreq:v(t,e.swayFreq),swayPhase:t()*Math.PI*2,rot:t()*Math.PI*2,spin:v(t,e.spin),tumble:e.tumble,tumblePhase:t()*Math.PI*2,tumbleSpeed:v(t,e.tumbleSpeed),opacity:b(m(e.opacity[0],e.opacity[1],a)*i.opacity,0,1),dir:u,sheet:s,sprite:Math.floor(t()*Math.max(1,r)),retiring:!1,pushX:0,pushY:0}}function B(t,e,i){let n=t.size*(1+e()*2);t.x=e()*i.width,t.y=t.dir===1?-n:i.height+n,t.pushX=0,t.pushY=0}function Q(t,e,i,n){t.tumblePhase+=t.tumbleSpeed*e,t.rot+=t.spin*e;let s=Math.abs(Math.cos(t.tumblePhase))*t.tumble,r=t.fall*(1-.3*s),o=Math.cos(t.swayPhase+i.time*t.swayFreq)*t.swayAmp,a=Math.sin(t.tumblePhase)*t.tumble*t.swayAmp*.6,l=i.wind*(.4+.6*t.depth);if(n){let p=t.x-n.x,F=t.y-n.y,f=Math.hypot(p,F);if(f<n.radius&&f>.001){let A=1-f/n.radius,D=A*A*900*e;t.pushX+=p/f*D,t.pushY+=F/f*D}}let d=Math.exp(-2.5*e);t.pushX*=d,t.pushY*=d,t.y+=(t.dir*r+t.pushY)*e,t.x+=(o+a+l+t.pushX)*e;let u=t.size;return t.x<-u?t.x=i.width+u:t.x>i.width+u&&(t.x=-u),t.dir===1?t.y<=i.height+u:t.y>=-u}var ge=64,Pe=2,Me=.05,Se={density:1,maxParticles:400,speed:1,size:1,opacity:1,zIndex:9999,interactive:!1,pointerRadius:120,respectReducedMotion:!0,autoStart:!0},ke=["count","density","maxParticles","speed","size","opacity"];function Te(t){if(!t)return null;if(typeof t!="string")return t;let e=document.querySelector(t);if(!e)throw new Error(`lwkfall: container "${t}" was not found`);return e}function Ce(t){return{start(){},stop(){},toggle:()=>!1,setPreset(){},setOptions(){},destroy(){},running:!1,preset:t,reducedMotion:!1,particleCount:0,canvas:null}}var O=class{constructor(e,i){this.restorePosition=null;this.particles=[];this.sheets=new Map;this.sheetId=0;this.currentSheet=-1;this.needsPrune=!1;this.world={width:0,height:0,time:0,wind:0};this.dpr=1;this.pointer=null;this.wanted=!1;this.pageVisible=!0;this.inView=!0;this.reduced=!1;this.mounted=!1;this.destroyed=!1;this.raf=0;this.last=0;this.resizeObserver=null;this.intersectionObserver=null;this.motionQuery=null;this.onVisibility=()=>{this.pageVisible=document.visibilityState!=="hidden",this.sync()};this.onResize=()=>{let e=this.dpr;this.measure(),this.dpr!==e?this.rebuild("scatter"):this.fitCount()};this.onPointerMove=e=>{let i=this.canvas_.getBoundingClientRect();this.pointer={x:e.clientX-i.left,y:e.clientY-i.top,radius:this.opts.pointerRadius}};this.onPointerLeave=()=>{this.pointer=null};this.readMotionPreference=()=>{this.reduced=this.opts.respectReducedMotion&&!!this.motionQuery?.matches,this.sync()};this.frame=e=>{if(this.raf=0,!this.shouldRun())return;let i=Math.min((e-this.last)/1e3,Me);this.last=e,this.world.time+=i,this.world.wind=V(this.world.time,this.opts.wind??this.presetData.wind),this.update(i),this.draw(),this.raf=requestAnimationFrame(this.frame)};this.opts={...Se,...U(i)},this.rng=S(this.opts.seed);let n=L(e);if(this.presetData=n.preset,this.presetName=n.name,this.container=Te(this.opts.container),this.canvas_=document.createElement("canvas"),this.ctx=this.canvas_.getContext("2d"),!this.ctx){console.warn("lwkfall: 2D canvas is not available, the effect is disabled"),this.destroyed=!0;return}this.applyCanvasStyle(),this.wanted=this.opts.autoStart,this.init()}get canvas(){return this.destroyed?null:this.canvas_}get running(){return this.wanted&&!this.destroyed}get preset(){return this.presetName}get reducedMotion(){return this.reduced}get particleCount(){return this.particles.length}start(){this.wanted=!0,this.sync()}stop(){this.wanted=!1,this.sync()}toggle(){return this.wanted?this.stop():this.start(),this.wanted}setPreset(e){if(this.destroyed)return;let i=L(e);this.presetData=i.preset,this.presetName=i.name,this.mounted&&this.rebuild()}setOptions(e){if(this.destroyed)return;let i=U(e),n=ke.some(o=>o in i&&i[o]!==this.opts[o]),s="interactive"in i&&i.interactive!==this.opts.interactive,r="respectReducedMotion"in i&&i.respectReducedMotion!==this.opts.respectReducedMotion;this.opts={...this.opts,...i},"seed"in i&&(this.rng=S(this.opts.seed)),this.canvas_.style.zIndex=String(this.opts.zIndex),s&&this.bindPointer(),r&&this.readMotionPreference(),this.mounted&&n&&this.rebuild(),this.sync()}destroy(){this.destroyed||(this.destroyed=!0,this.wanted=!1,this.raf&&cancelAnimationFrame(this.raf),this.raf=0,this.unbind(),this.canvas_.remove(),this.container&&this.restorePosition!==null&&(this.container.style.position=this.restorePosition),this.particles=[],this.sheets.clear())}applyCanvasStyle(){let e=this.canvas_.style;e.position=this.container?"absolute":"fixed",e.inset="0",e.width="100%",e.height="100%",e.pointerEvents="none",e.zIndex=String(this.opts.zIndex),this.canvas_.setAttribute("aria-hidden","true"),this.canvas_.setAttribute("data-lwkfall","")}init(){if(this.destroyed||this.mounted)return;let e=this.container??document.body;if(!e){document.addEventListener("DOMContentLoaded",()=>this.init(),{once:!0});return}this.container&&getComputedStyle(this.container).position==="static"&&(this.restorePosition=this.container.style.position,this.container.style.position="relative"),e.appendChild(this.canvas_),this.mounted=!0,this.measure(),this.rebuild("scatter",!1),this.bind(),this.sync()}bind(){document.addEventListener("visibilitychange",this.onVisibility),this.pageVisible=document.visibilityState!=="hidden",this.container?(this.resizeObserver=new ResizeObserver(this.onResize),this.resizeObserver.observe(this.container),this.intersectionObserver=new IntersectionObserver(e=>{let i=e[e.length-1];i&&(this.inView=i.isIntersecting,this.sync())}),this.intersectionObserver.observe(this.container)):window.addEventListener("resize",this.onResize),typeof window.matchMedia=="function"&&(this.motionQuery=window.matchMedia("(prefers-reduced-motion: reduce)"),this.motionQuery.addEventListener?.("change",this.readMotionPreference)),this.readMotionPreference(),this.bindPointer()}unbind(){document.removeEventListener("visibilitychange",this.onVisibility),window.removeEventListener("resize",this.onResize),window.removeEventListener("pointermove",this.onPointerMove),document.documentElement.removeEventListener("mouseleave",this.onPointerLeave),this.resizeObserver?.disconnect(),this.intersectionObserver?.disconnect(),this.motionQuery?.removeEventListener?.("change",this.readMotionPreference)}bindPointer(){window.removeEventListener("pointermove",this.onPointerMove),document.documentElement.removeEventListener("mouseleave",this.onPointerLeave),this.pointer=null,this.opts.interactive&&(window.addEventListener("pointermove",this.onPointerMove,{passive:!0}),document.documentElement.addEventListener("mouseleave",this.onPointerLeave))}measure(){let e=this.container?this.container.clientWidth:window.innerWidth,i=this.container?this.container.clientHeight:window.innerHeight;this.dpr=Math.min(window.devicePixelRatio||1,Pe),this.canvas_.width=Math.max(1,Math.round(e*this.dpr)),this.canvas_.height=Math.max(1,Math.round(i*this.dpr)),this.world.width=e,this.world.height=i}tuning(){let e=this.opts;return{count:e.count,density:e.density,maxParticles:e.maxParticles,speed:e.speed,size:e.size,opacity:e.opacity}}targetCount(){return X(this.world.width*this.world.height,this.presetData.density,this.tuning())}buildSheet(){let e=[],i=Math.round(ge*this.dpr);for(let s of this.presetData.colors)for(let r of this.presetData.shapes){let o=typeof r=="function"?r:w[r],a=document.createElement("canvas");a.width=a.height=i;let l=a.getContext("2d");l&&(l.translate(i/2,i/2),o(l,i/2*.9,s),e.push(a))}let n=++this.sheetId;return this.sheets.set(n,e),this.currentSheet=n,n}rebuild(e="stream",i=!0){if(this.world.width===0||this.world.height===0)return;if(i)for(let o of this.particles)o.retiring=!0;let n=this.buildSheet(),s=(this.sheets.get(n)??[]).length,r=this.targetCount();for(let o=0;o<r;o++)this.particles.push(z(this.rng,this.presetData,this.tuning(),this.world,n,s,e));this.needsPrune=!0,this.raf||this.draw()}fitCount(){if(this.world.width===0||this.world.height===0)return;let e=this.particles.filter(n=>!n.retiring).length,i=this.targetCount();if(e<i){let n=(this.sheets.get(this.currentSheet)??[]).length;for(let s=e;s<i;s++)this.particles.push(z(this.rng,this.presetData,this.tuning(),this.world,this.currentSheet,n,"scatter"))}else if(e>i){let n=e-i;for(let s=this.particles.length-1;s>=0&&n>0;s--)this.particles[s]?.retiring||(this.particles.splice(s,1),n--)}this.raf||this.draw()}prune(){let e=new Set;for(let i of this.particles)e.add(i.sheet);e.add(this.currentSheet);for(let i of this.sheets.keys())e.has(i)||this.sheets.delete(i);this.needsPrune=!1}shouldRun(){return this.wanted&&!this.destroyed&&this.mounted&&this.pageVisible&&this.inView&&!this.reduced}sync(){if(this.destroyed)return;let e=this.shouldRun();e&&!this.raf?(this.last=performance.now(),this.raf=requestAnimationFrame(this.frame)):!e&&this.raf&&(cancelAnimationFrame(this.raf),this.raf=0),this.reduced&&this.mounted&&this.clear()}update(e){let i=this.particles;for(let n=i.length-1;n>=0;n--){let s=i[n];Q(s,e,this.world,this.pointer)||(s.retiring?(i[n]=i[i.length-1],i.pop(),this.needsPrune=!0):B(s,this.rng,this.world))}this.needsPrune&&this.prune()}clear(){let e=this.ctx;e&&(e.setTransform(1,0,0,1,0,0),e.clearRect(0,0,this.canvas_.width,this.canvas_.height))}draw(){let e=this.ctx;if(!e||this.reduced)return;let i=this.dpr;this.clear();for(let n of this.particles){let s=this.sheets.get(n.sheet)?.[n.sprite];if(!s)continue;let r=Y(n),o=Math.cos(n.rot),a=Math.sin(n.rot);e.globalAlpha=n.opacity*(.65+.35*r),e.setTransform(o*r*i,a*r*i,-a*i,o*i,n.x*i,n.y*i);let l=n.size/2;e.drawImage(s,-l,-l,n.size,n.size)}e.globalAlpha=1,e.setTransform(1,0,0,1,0,0)}};function U(t){return Object.fromEntries(Object.entries(t).filter(([,e])=>e!==void 0))}function J(t="leaves",e={}){return typeof window>"u"||typeof document>"u"?Ce(typeof t=="string"?t:"custom"):new O(t,e)}return ie(Re);})();
+</script>
+<script>
+(function () {
+  if (!window.Lwkfall) {
+    document.getElementById("load-error").hidden = false;
+    return;
+  }
+  var scenesEl = document.getElementById("scenes");
+  var codeEl = document.getElementById("code");
+  var root = document.documentElement;
+  var names = Lwkfall.listPresets();
+  var current = "sakura";
+  var settings = { density: 1, speed: 1, wind: 0, pointer: false };
+
+  // Allow a direct link such as #snow
+  var hash = location.hash.slice(1);
+  if (hash && names.indexOf(hash) !== -1) current = hash;
+
+  var fx = Lwkfall.fall(current, { zIndex: 0 });
+
+  function label(name) { return Lwkfall.getPreset(name).label; }
+
+  function renderScenes() {
+    scenesEl.innerHTML = "";
+    names.forEach(function (name) {
+      var li = document.createElement("li");
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = label(name);
+      b.setAttribute("aria-pressed", String(name === current));
+      b.addEventListener("click", function () { choose(name); });
+      li.appendChild(b);
+      scenesEl.appendChild(li);
+    });
+  }
+
+  function snippet() {
+    var opts = [];
+    if (settings.density !== 1) opts.push("density: " + settings.density.toFixed(1));
+    if (settings.speed !== 1) opts.push("speed: " + settings.speed.toFixed(1));
+    if (settings.wind !== 0) opts.push("wind: " + settings.wind);
+    if (settings.pointer) opts.push("interactive: true");
+    var call = 'fall("' + current + '"' + (opts.length ? ", { " + opts.join(", ") + " }" : "") + ");";
+    return "npm install lwkfall\n\nimport { fall } from \"lwkfall\";\n\n" + call;
+  }
+
+  function renderCode() {
+    var text = snippet();
+    var lines = text.split("\n");
+    codeEl.innerHTML = lines.map(function (l, i) {
+      var safe = l.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+      if (i === 0) return '<span class="dim">$ ' + safe + "</span>";
+      if (l.indexOf("fall(") === 0) return '<span class="hl">' + safe + "</span>";
+      return safe;
+    }).join("\n");
+  }
+
+  function choose(name) {
+    current = name;
+    root.setAttribute("data-scene", name);
+    fx.setPreset(name);
+    renderScenes();
+    renderCode();
+  }
+
+  function bindRange(id, key, fmt, live) {
+    var input = document.getElementById(id);
+    var out = document.getElementById(id + "-out");
+    function show() { out.textContent = fmt(Number(input.value)); }
+    input.addEventListener("input", function () {
+      settings[key] = Number(input.value);
+      show();
+      renderCode();
+      if (live) fx.setOptions({ wind: settings.wind });
+    });
+    if (!live) input.addEventListener("change", function () {
+      var o = {}; o[key] = settings[key]; fx.setOptions(o);
+    });
+    show();
+  }
+
+  bindRange("density", "density", function (v) { return v.toFixed(1); }, false);
+  bindRange("speed", "speed", function (v) { return v.toFixed(1); }, false);
+  bindRange("wind", "wind", function (v) { return String(v); }, true);
+
+  document.getElementById("pointer").addEventListener("change", function (e) {
+    settings.pointer = e.target.checked;
+    fx.setOptions({ interactive: settings.pointer });
+    renderCode();
+  });
+
+  var pauseBtn = document.getElementById("pause");
+  pauseBtn.addEventListener("click", function () {
+    pauseBtn.textContent = fx.toggle() ? "Pause" : "Resume";
+  });
+
+  var copyBtn = document.getElementById("copy");
+  copyBtn.addEventListener("click", function () {
+    var text = snippet();
+    var done = function () {
+      copyBtn.textContent = "Copied";
+      setTimeout(function () { copyBtn.textContent = "Copy"; }, 1600);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done);
+    else {
+      var ta = document.createElement("textarea");
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); done(); } catch (e) {}
+      ta.remove();
+    }
+  });
+
+  var note = document.getElementById("motion-note");
+  if (fx.reducedMotion) note.hidden = false;
+  document.getElementById("play-anyway").addEventListener("click", function () {
+    fx.setOptions({ respectReducedMotion: false });
+    note.hidden = true;
+  });
+
+  root.setAttribute("data-scene", current);
+  renderScenes();
+  renderCode();
+})();
+</script>
+</body>
+</html>
