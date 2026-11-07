@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lwkfall: falling leaves, petals and snow for any website</title>
+<meta name="description" content="Tiny dependency-free canvas effects. Pick leaves, autumn, maple, cherry blossom, snow, rose petals or embers.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;600;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  @property --bg-top { syntax: "<color>"; inherits: true; initial-value: #14261a; }
+  @property --bg-bottom { syntax: "<color>"; inherits: true; initial-value: #0e1a12; }
+  @property --ink { syntax: "<color>"; inherits: true; initial-value: #e6f0dc; }
+  @property --accent { syntax: "<color>"; inherits: true; initial-value: #9ccf5a; }
+
+  :root {
+    --bg-top: #14261a; --bg-bottom: #0e1a12; --ink: #e6f0dc; --accent: #9ccf5a;
+    --muted: color-mix(in srgb, var(--ink) 62%, transparent);
+    --line: color-mix(in srgb, var(--ink) 18%, transparent);
+    --panel: color-mix(in srgb, var(--bg-bottom) 72%, transparent);
+    color-scheme: dark;
+    transition: --bg-top 1.4s ease, --bg-bottom 1.4s ease, --ink 1.4s ease, --accent 1.4s ease;
+  }
+  :root[data-scene="autumn"]  { --bg-top: #2e1a10; --bg-bottom: #1b0f0a; --ink: #f6e3c8; --accent: #f08c00; }
+  :root[data-scene="maple"]   { --bg-top: #2f1215; --bg-bottom: #1a0a0c; --ink: #f8dede; --accent: #ff6b4a; }
+  :root[data-scene="ginkgo"]  { --bg-top: #2d2610; --bg-bottom: #1a1608; --ink: #f9f0c4; --accent: #f6c915; }
+  :root[data-scene="sakura"]  { --bg-top: #2e1b33; --bg-bottom: #1a0f1e; --ink: #fde8ef; --accent: #ffb3c8; }
+  :root[data-scene="petals"]  { --bg-top: #2e0f1d; --bg-bottom: #1a0812; --ink: #fbe0ea; --accent: #e84a7f; }
+  :root[data-scene="snow"]    { --bg-top: #18273f; --bg-bottom: #0c1626; --ink: #e8f1ff; --accent: #a5d8ff; }
+  :root[data-scene="embers"]  { --bg-top: #221c19; --bg-bottom: #100d0c; --ink: #f5e6da; --accent: #ff7a18; }
+
+  * { box-sizing: border-box; }
+  html { min-height: 100%; background: var(--bg-bottom); }
+  body {
+    margin: 0;
+    min-height: 100svh;
+    color: var(--ink);
+    background: linear-gradient(180deg, var(--bg-top), var(--bg-bottom)) fixed;
+    font-family: "Schibsted Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 1.0625rem;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  main {
+    position: relative; z-index: 1;
+    min-height: 100svh;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 3rem;
+    padding: clamp(1.5rem, 5vw, 4.5rem);
+    max-width: 78rem;
+    margin: 0 auto;
+    align-content: center;
+  }
+  @media (min-width: 62rem) {
+    main { grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); gap: 5rem; align-items: center; }
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(3.4rem, 9vw, 7rem);
+    line-height: 0.95;
+    font-weight: 800;
+    letter-spacing: -0.045em;
+  }
+  .lede { margin: 1.25rem 0 0; max-width: 30rem; color: var(--muted); }
+
+  .scenes { list-style: none; margin: 2.75rem 0 0; padding: 0; display: grid; gap: 0.1rem; }
+  .scenes button {
+    all: unset; box-sizing: border-box;
+    cursor: pointer;
+    font-size: clamp(1.5rem, 3.2vw, 2.15rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+    padding: 0.12em 0;
+    color: var(--muted);
+    transition: color 0.25s ease, transform 0.25s ease;
+  }
+  .scenes button:hover { color: var(--ink); }
+  .scenes button[aria-pressed="true"] { color: var(--accent); transform: translateX(0.6rem); }
+  .scenes button:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 4px; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 1.5rem;
+    backdrop-filter: blur(6px);
+  }
+  pre {
+    margin: 0;
+    font: 400 0.9rem/1.7 "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  pre .dim { color: var(--muted); }
+  pre .hl { color: var(--accent); }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+  .row strong { font-weight: 600; }
+
+  button.action {
+    font: inherit; font-size: 0.95rem; font-weight: 600;
+    color: var(--ink);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 0.45rem 0.9rem;
+    cursor: pointer;
+    transition: border-color 0.2s ease, color 0.2s ease;
+  }
+  button.action:hover { border-color: var(--accent); color: var(--accent); }
+  button.action:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  .controls { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--line); display: grid; gap: 1rem; }
+  .control { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr) 3.2rem; align-items: center; gap: 0.75rem; }
+  .control output { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
+  input[type="range"]:focus-visible, input[type="checkbox"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .toggle { display: flex; align-items: center; gap: 0.6rem; cursor: pointer; }
+  .toggle input { accent-color: var(--accent); width: 1.1rem; height: 1.1rem; margin: 0; }
+  .buttons { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+
+  .note { margin: 1rem 0 0; color: var(--muted); font-size: 0.95rem; }
+  .note[hidden] { display: none; }
+  footer { margin-top: 1.5rem; color: var(--muted); font-size: 0.95rem; }
+  footer a { color: var(--ink); text-underline-offset: 3px; }
+  footer a:hover { color: var(--accent); }
+  footer a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    :root { transition: none; }
+    .scenes button { transition: none; }
+    .scenes button[aria-pressed="true"] { transform: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <h1>Lwkfall</h1>
+    <p class="lede">Falling leaves, petals and snow for any website. One canvas, no dependencies, about 7 KB gzipped.</p>
+    <p class="note" id="load-error" hidden>
+      The effect library did not load, so nothing can fall. Extract the whole zip first instead of opening the page from inside it,
+      then run <code>npm run build</code>, or open <code>demo/standalone.html</code>, which needs no other files.
+    </p>
+    <ul class="scenes" id="scenes" aria-label="Effect"></ul>
+  </section>
+
+  <section>
+    <div class="panel">
+      <div class="row">
+        <strong>Use it</strong>
+        <button class="action" id="copy" type="button">Copy</button>
+      </div>
+      <pre id="code"></pre>
+
+      <div class="controls">
+        <label class="control">Density
+          <input id="density" type="range" min="0.3" max="2.5" step="0.1" value="1">
+          <output id="density-out">1.0</output>
+        </label>
+        <label class="control">Speed
+          <input id="speed" type="range" min="0.3" max="2.5" step="0.1" value="1">
+          <output id="speed-out">1.0</output>
+        </label>
+        <label class="control">Wind
+          <input id="wind" type="range" min="-80" max="80" step="1" value="0">
+          <output id="wind-out">0</output>
+        </label>
+        <div class="buttons">
+          <label class="toggle"><input id="pointer" type="checkbox"> Move away from the pointer</label>
+          <button class="action" id="pause" type="button">Pause</button>
+        </div>
+      </div>
+      <p class="note" id="motion-note" hidden>
+        Your system asks for reduced motion, so the effect is paused.
+        <button class="action" id="play-anyway" type="button">Play anyway</button>
+      </p>
+    </div>
+    <footer>Made by <a href="https://github.com/LwkMoon">Moon</a>. Source on <a href="https://github.com/LwkMoon/lwkfall">GitHub</a>.</footer>
+  </section>
+</main>
+
+<script src="../dist/index.global.js"></script>
+<script>
+  // Fall back to the published package when the local build is missing.
+  if (!window.Lwkfall) document.write('<script src="https://unpkg.com/lwkfall"><\/script>');
+</script>
+<script>
+(function () {
+  if (!window.Lwkfall) {
+    document.getElementById("load-error").hidden = false;
+    return;
+  }
+  var scenesEl = document.getElementById("scenes");
+  var codeEl = document.getElementById("code");
+  var root = document.documentElement;
+  var names = Lwkfall.listPresets();
+  var current = "sakura";
+  var settings = { density: 1, speed: 1, wind: 0, pointer: false };
+
+  // Allow a direct link such as #snow
+  var hash = location.hash.slice(1);
+  if (hash && names.indexOf(hash) !== -1) current = hash;
+
+  var fx = Lwkfall.fall(current, { zIndex: 0 });
+
+  function label(name) { return Lwkfall.getPreset(name).label; }
+
+  function renderScenes() {
+    scenesEl.innerHTML = "";
+    names.forEach(function (name) {
+      var li = document.createElement("li");
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = label(name);
+      b.setAttribute("aria-pressed", String(name === current));
+      b.addEventListener("click", function () { choose(name); });
+      li.appendChild(b);
+      scenesEl.appendChild(li);
+    });
+  }
+
+  function snippet() {
+    var opts = [];
+    if (settings.density !== 1) opts.push("density: " + settings.density.toFixed(1));
+    if (settings.speed !== 1) opts.push("speed: " + settings.speed.toFixed(1));
+    if (settings.wind !== 0) opts.push("wind: " + settings.wind);
+    if (settings.pointer) opts.push("interactive: true");
+    var call = 'fall("' + current + '"' + (opts.length ? ", { " + opts.join(", ") + " }" : "") + ");";
+    return "npm install lwkfall\n\nimport { fall } from \"lwkfall\";\n\n" + call;
+  }
+
+  function renderCode() {
+    var text = snippet();
+    var lines = text.split("\n");
+    codeEl.innerHTML = lines.map(function (l, i) {
+      var safe = l.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+      if (i === 0) return '<span class="dim">$ ' + safe + "</span>";
+      if (l.indexOf("fall(") === 0) return '<span class="hl">' + safe + "</span>";
+      return safe;
+    }).join("\n");
+  }
+
+  function choose(name) {
+    current = name;
+    root.setAttribute("data-scene", name);
+    fx.setPreset(name);
+    renderScenes();
+    renderCode();
+  }
+
+  function bindRange(id, key, fmt, live) {
+    var input = document.getElementById(id);
+    var out = document.getElementById(id + "-out");
+    function show() { out.textContent = fmt(Number(input.value)); }
+    input.addEventListener("input", function () {
+      settings[key] = Number(input.value);
+      show();
+      renderCode();
+      if (live) fx.setOptions({ wind: settings.wind });
+    });
+    if (!live) input.addEventListener("change", function () {
+      var o = {}; o[key] = settings[key]; fx.setOptions(o);
+    });
+    show();
+  }
+
+  bindRange("density", "density", function (v) { return v.toFixed(1); }, false);
+  bindRange("speed", "speed", function (v) { return v.toFixed(1); }, false);
+  bindRange("wind", "wind", function (v) { return String(v); }, true);
+
+  document.getElementById("pointer").addEventListener("change", function (e) {
+    settings.pointer = e.target.checked;
+    fx.setOptions({ interactive: settings.pointer });
+    renderCode();
+  });
+
+  var pauseBtn = document.getElementById("pause");
+  pauseBtn.addEventListener("click", function () {
+    pauseBtn.textContent = fx.toggle() ? "Pause" : "Resume";
+  });
+
+  var copyBtn = document.getElementById("copy");
+  copyBtn.addEventListener("click", function () {
+    var text = snippet();
+    var done = function () {
+      copyBtn.textContent = "Copied";
+      setTimeout(function () { copyBtn.textContent = "Copy"; }, 1600);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done);
+    else {
+      var ta = document.createElement("textarea");
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); done(); } catch (e) {}
+      ta.remove();
+    }
+  });
+
+  var note = document.getElementById("motion-note");
+  if (fx.reducedMotion) note.hidden = false;
+  document.getElementById("play-anyway").addEventListener("click", function () {
+    fx.setOptions({ respectReducedMotion: false });
+    note.hidden = true;
+  });
+
+  root.setAttribute("data-scene", current);
+  renderScenes();
+  renderCode();
+})();
+</script>
+</body>
+</html>
